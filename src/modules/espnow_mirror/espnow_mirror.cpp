@@ -22,13 +22,14 @@
 #include <esp_now.h>
 #include <esp_wifi.h>
 
-// ---- target: S3-Nano STA MAC + shared channel ----
-static uint8_t RX_MAC[6] = { 0x3C, 0x0F, 0x02, 0xD4, 0xAF, 0xDC };
+// ---- broadcast: any single active receiver on channel 1 picks up the stream ----
+// (Only ever run ONE receiver at a time, per the project design.)
+static uint8_t RX_MAC[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 static const uint8_t  CH        = 1;
 static const uint8_t  MSG       = 0xE5;   // must match receiver
 static const int      CHUNK     = 240;    // <= 250 - 4 header bytes
 static const uint32_t PERIOD_MS = 150;    // ~6-7 fps; plenty for static UI
-static const size_t   BIN_MAX   = 8192;
+static const size_t   BIN_MAX   = 9216;
 
 static TaskHandle_t s_task = nullptr;
 static bool         s_run  = false;
@@ -108,7 +109,8 @@ void espnowMirrorBegin() {
 
   esp_now_peer_info_t p = {};
   memcpy(p.peer_addr, RX_MAC, 6);
-  p.channel = CH;
+  p.channel = 0;            // 0 = transmit on the CURRENT radio channel, so
+                           // ESP-NOW follows the radio when Bruce joins Wi-Fi
   p.encrypt = false;
   p.ifidx   = WIFI_IF_STA;
   if (esp_now_add_peer(&p) != ESP_OK) { log_e("espnow_mirror: add_peer failed"); return; }
